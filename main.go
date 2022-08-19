@@ -25,9 +25,9 @@ func main() {
 	token := flag.String("token", os.Getenv("UpYun_Token"), "upYun token")
 	host := flag.String("host", "0.0.0.0", "服务监听地址")
 	port := flag.Int("port", 9300, "服务监听端口")
-	rangeTime := flag.Int64("rangeTime", 3000, "time difference of the requestData")
-	delayTime := flag.Int64("delayTime", 60, "time-delay of the endTime")
-	tickerTime := flag.Int("tickerTime", 10,  "tickerTime")
+	delayTime := flag.Int64("delayTime", 60, "时间偏移量, 结束时间=now-delay_seconds")
+	rangeTime := flag.Int64("rangeTime", 3000, "选取时间范围, 开始时间=now-range_seconds, 结束时间=now")
+	tickerTime := flag.Int("tickerTime", 10,  "刷新域名列表间隔时间")
 	flag.Parse()
 	FetchDomainList()
 	ticker := time.NewTicker(time.Duration(*tickerTime) * time.Second)
@@ -52,4 +52,3 @@ func main() {
 	log.Fatal(http.ListenAndServe(listenAddress, nil))
 
 }
-
