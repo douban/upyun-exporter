@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 const httpBandWidthAddress = "https://api.upyun.com/v2/statistics"
@@ -23,35 +24,37 @@ type BandWidthList struct {
 	Interval string `json:"interval"`
 }
 type BandWidthDetailList struct {
-	Four00    int64  `json:"_400"`
-	Four03    int64  `json:"_403"`
-	Four04    int64  `json:"_404"`
-	Four11    int64  `json:"_411"`
-	Four99    int64  `json:"_499"`
-	Five00    int64  `json:"_500"`
-	Five02    int64  `json:"_502"`
-	Five03    int64  `json:"_503"`
-	Five04    int64  `json:"_504"`
+	Code400   int64  `json:"_400"`
+	Code403   int64  `json:"_403"`
+	Code404   int64  `json:"_404"`
+	Code411   int64  `json:"_411"`
+	Code499   int64  `json:"_499"`
+	Code500   int64  `json:"_500"`
+	Code502   int64  `json:"_502"`
+	COde503   int64  `json:"_503"`
+	Code504   int64  `json:"_504"`
 	Bandwidth string `json:"bandwidth"`
 	Reqs      int64  `json:"reqs"`
 }
-type HealthDegreeList struct {
+type AccountHealthList struct {
 	Result struct {
-		Two00  int64 `json:"_200"`
-		Four00 int64 `json:"_400"`
-		Four03 int64 `json:"_403"`
-		Four04 int64 `json:"_404"`
-		Four11 int64 `json:"_411"`
-		Four99 int64 `json:"_499"`
-		Five00 int64 `json:"_500"`
-		Five02 int64 `json:"_502"`
-		Five03 int64 `json:"_503"`
-		Five04 int64 `json:"_504"`
-		Req    int64 `json:"req"`
+		Code200 int64 `json:"_200"`
+		Code400 int64 `json:"_400"`
+		Code403 int64 `json:"_403"`
+		Code404 int64 `json:"_404"`
+		Code411 int64 `json:"_411"`
+		Code499 int64 `json:"_499"`
+		Code500 int64 `json:"_500"`
+		Code502 int64 `json:"_502"`
+		Code503 int64 `json:"_503"`
+		Code504 int64 `json:"_504"`
+		Req     int64 `json:"req"`
 	} `json:"result"`
 }
 
-func DoHealthDegreeRequest(token string, startTime string, endTime string) HealthDegreeList {
+func DoHealthDegreeRequest(token string, rangeTime int64, delayTime int64) AccountHealthList {
+	endTime := time.Now().Add(-time.Minute * time.Duration(delayTime)).Format("2006-01-02:15:04:05")
+	startTime := time.Now().Add(-time.Minute * time.Duration(rangeTime)).Format("2006-01-02:15:04:05")
 	req, err := http.NewRequest("GET", httpHealthDegreeAddress, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -68,7 +71,7 @@ func DoHealthDegreeRequest(token string, startTime string, endTime string) Healt
 	if err != nil {
 		log.Fatal("请求失败", err)
 	}
-	var healthDegree HealthDegreeList
+	var healthDegree AccountHealthList
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		log.Fatal(err)
@@ -80,8 +83,11 @@ func DoHealthDegreeRequest(token string, startTime string, endTime string) Healt
 	}
 	return healthDegree
 }
-func DoHttpBandWidthRequest(domain string, token string, startTime string, endTime string) BandWidthList {
-
+func DoHttpBandWidthRequest(domain string, token string, rangeTime int64, delayTime int64) BandWidthList {
+	endTime := time.Now().Add(-time.Minute * time.Duration(delayTime)).Format("2006-01-02:15:04:05")
+	startTime := time.Now().Add(-time.Minute * time.Duration(rangeTime)).Format("2006-01-02:15:04:05")
+	log.Println(startTime)
+	log.Println(endTime)
 	req, err := http.NewRequest("GET", httpBandWidthAddress, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -111,7 +117,9 @@ func DoHttpBandWidthRequest(domain string, token string, startTime string, endTi
 	return BandWidth
 }
 
-func DoHttpBandWidthResourceRequest(domain string, token string, startTime string, endTime string) map[string][]BandWidthDetailList {
+func DoHttpBandWidthResourceRequest(domain string, token string, rangeTime int64, delayTime int64) map[string][]BandWidthDetailList {
+	endTime := time.Now().Add(-time.Minute * time.Duration(delayTime)).Format("2006-01-02:15:04:05")
+	startTime := time.Now().Add(-time.Minute * time.Duration(rangeTime)).Format("2006-01-02:15:04:05")
 	req, err := http.NewRequest("GET", httpBandWidthDetailAddress, nil)
 	if err != nil {
 		log.Fatal(err)

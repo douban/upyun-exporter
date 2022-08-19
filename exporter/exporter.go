@@ -12,8 +12,8 @@ const cdnNameSpace = "upYun"
 type cdnExporter struct {
 	domainList              *[]string
 	token                   string
-	startTime               string
-	endTime                 string
+	rangeTime               int64
+	delayTime               int64
 	cdnRequestCount         *prometheus.Desc
 	cdnBandWidth            *prometheus.Desc
 	cdn4xxErrorRate         *prometheus.Desc
@@ -23,12 +23,12 @@ type cdnExporter struct {
 	cdnResource5xxErrorRate *prometheus.Desc
 }
 
-func CdnCloudExporter(domainList *[]string, token string, startTime string, endTime string) *cdnExporter {
+func CdnCloudExporter(domainList *[]string, token string, rangeTime int64, delayTime int64) *cdnExporter {
 	return &cdnExporter{
 		domainList: domainList,
 		token:      token,
-		startTime:  startTime,
-		endTime:    endTime,
+		rangeTime:  rangeTime,
+		delayTime:  delayTime,
 		cdnRequestCount: prometheus.NewDesc(
 			prometheus.BuildFQName(cdnNameSpace, "cdn", "request_count"),
 			"cdn总请求数",
@@ -99,9 +99,9 @@ func (e *cdnExporter) Describe(ch chan<- *prometheus.Desc) {
 
 func (e *cdnExporter) Collect(ch chan<- prometheus.Metric) {
 	for _, domain := range *e.domainList {
-		cdnRequestData := httpRequest.DoHttpBandWidthRequest(domain, e.token, e.startTime, e.endTime)
-		cdnHealthDegreeData := httpRequest.DoHealthDegreeRequest(e.token, e.startTime, e.endTime).Result
-		resourceRequesdata := httpRequest.DoHttpBandWidthResourceRequest(domain, e.token, e.startTime, e.endTime)
+		cdnRequestData := httpRequest.DoHttpBandWidthRequest(domain, e.token, e.rangeTime, e.delayTime)
+		cdnHealthDegreeData := httpRequest.DoHealthDegreeRequest(e.token, e.rangeTime, e.delayTime).Result
+		resourceRequesdata := httpRequest.DoHttpBandWidthResourceRequest(domain, e.token, e.rangeTime, e.delayTime)
 
 		var requestCountTotal float64
 		var cdnBandWidthTotal float64
@@ -122,15 +122,15 @@ func (e *cdnExporter) Collect(ch chan<- prometheus.Metric) {
 		for _, v := range resourceRequesdata {
 			ResourceBandWidthCount = len(v)
 			for _, point := range v {
-				Resource4xxTotal += point.Four04
-				Resource4xxTotal += point.Four00
-				Resource4xxTotal += point.Four03
-				Resource4xxTotal += point.Four11
-				Resource4xxTotal += point.Four99
-				Resource5xxTotal += point.Five03
-				Resource5xxTotal += point.Five00
-				Resource5xxTotal += point.Five02
-				Resource5xxTotal += point.Five04
+				Resource4xxTotal += point.Code404
+				Resource4xxTotal += point.Code400
+				Resource4xxTotal += point.Code403
+				Resource4xxTotal += point.Code411
+				Resource4xxTotal += point.Code499
+				Resource5xxTotal += point.Code500
+				Resource5xxTotal += point.Code502
+				Resource5xxTotal += point.COde503
+				Resource5xxTotal += point.Code504
 				ResourceReqsTotal += point.Reqs
 				Float64BandWidth, err := strconv.ParseFloat(point.Bandwidth, 64)
 				if err != nil {
@@ -143,8 +143,8 @@ func (e *cdnExporter) Collect(ch chan<- prometheus.Metric) {
 		Resource5xxErrorAverage = (float64(Resource5xxTotal) / float64(ResourceReqsTotal)) * 100
 		ResourceBandWidthAverage := ResourceBandWidthTotal / float64(ResourceBandWidthCount)
 
-		http4xxCodeTotal = cdnHealthDegreeData.Four99 + cdnHealthDegreeData.Four00 + cdnHealthDegreeData.Four04 + cdnHealthDegreeData.Four03 + cdnHealthDegreeData.Four11
-		http5xxCodeTotal = cdnHealthDegreeData.Five00 + cdnHealthDegreeData.Five02 + cdnHealthDegreeData.Five03 + cdnHealthDegreeData.Five04
+		http4xxCodeTotal = cdnHealthDegreeData.Code499 + cdnHealthDegreeData.Code400 + cdnHealthDegreeData.Code404 + cdnHealthDegreeData.Code403 + cdnHealthDegreeData.Code411
+		http5xxCodeTotal = cdnHealthDegreeData.Code500 + cdnHealthDegreeData.Code502 + cdnHealthDegreeData.Code503 + cdnHealthDegreeData.Code504
 
 		http4xxErrorRate := float64(http4xxCodeTotal) / float64(cdnHealthDegreeData.Req)
 		http5xxErrorRate := float64(http5xxCodeTotal) / float64(cdnHealthDegreeData.Req)

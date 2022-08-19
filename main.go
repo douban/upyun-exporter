@@ -23,10 +23,10 @@ func FetchDomainList() {
 
 func main() {
 	token := flag.String("token", os.Getenv("UpYun_Token"), "upYun token")
-	startTime := flag.String("startTime", os.Getenv("UpYun_startTime"), "upYun startTime")
-	endTime := flag.String("endTime", os.Getenv("UpYun_endTime"), "upYun endTime")
 	host := flag.String("host", "0.0.0.0", "服务监听地址")
-	port := flag.Int("port", 9200, "服务监听端口")
+	port := flag.Int("port", 9300, "服务监听端口")
+	rangeTime := flag.Int64("rangeTime", 3000, "upYun rangeTime")
+	delayTime := flag.Int64("delayTime", 60, "upYun delayTime")
 	tickerTime := flag.Int("tickerTime", 10, "tickerTime")
 	flag.Parse()
 	FetchDomainList()
@@ -42,7 +42,8 @@ func main() {
 			}
 		}
 	}()
-	cdn := exporter.CdnCloudExporter(&domainList, *token, *startTime, *endTime)
+
+	cdn := exporter.CdnCloudExporter(&domainList, *token, *rangeTime, *delayTime)
 	prometheus.MustRegister(cdn)
 	listenAddress := net.JoinHostPort(*host, strconv.Itoa(*port))
 	log.Println(listenAddress)
@@ -51,4 +52,3 @@ func main() {
 	log.Fatal(http.ListenAndServe(listenAddress, nil))
 
 }
-
