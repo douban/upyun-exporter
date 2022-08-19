@@ -100,7 +100,7 @@ func (e *cdnExporter) Describe(ch chan<- *prometheus.Desc) {
 func (e *cdnExporter) Collect(ch chan<- prometheus.Metric) {
 	for _, domain := range *e.domainList {
 		cdnRequestData := httpRequest.DoHttpBandWidthRequest(domain, e.token, e.rangeTime, e.delayTime)
-		cdnHealthDegreeData := httpRequest.DoHealthDegreeRequest(e.token, e.rangeTime, e.delayTime).Result
+		cdnHealthDegreeData := httpRequest.DoAccountHealthRequest(e.token, e.rangeTime, e.delayTime).Result
 		resourceRequesdata := httpRequest.DoHttpBandWidthResourceRequest(domain, e.token, e.rangeTime, e.delayTime)
 
 		var requestCountTotal float64

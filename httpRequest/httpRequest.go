@@ -10,7 +10,7 @@ import (
 )
 
 const httpBandWidthAddress = "https://api.upyun.com/v2/statistics"
-const httpHealthDegreeAddress = "https://api.upyun.com/flow/health_degree/detail"
+const httpAccountHealthAddress = "https://api.upyun.com/flow/health_degree/detail"
 const httpBandWidthDetailAddress = "https://api.upyun.com/flow/common_data"
 
 type BandWidthList struct {
@@ -52,10 +52,10 @@ type AccountHealthList struct {
 	} `json:"result"`
 }
 
-func DoHealthDegreeRequest(token string, rangeTime int64, delayTime int64) AccountHealthList {
+func DoAccountHealthRequest(token string, rangeTime int64, delayTime int64) AccountHealthList {
 	endTime := time.Now().Add(-time.Minute * time.Duration(delayTime)).Format("2006-01-02:15:04:05")
 	startTime := time.Now().Add(-time.Minute * time.Duration(rangeTime)).Format("2006-01-02:15:04:05")
-	req, err := http.NewRequest("GET", httpHealthDegreeAddress, nil)
+	req, err := http.NewRequest("GET", httpAccountHealthAddress, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -71,22 +71,21 @@ func DoHealthDegreeRequest(token string, rangeTime int64, delayTime int64) Accou
 	if err != nil {
 		log.Fatal("请求失败", err)
 	}
-	var healthDegree AccountHealthList
+	var AccountHealth AccountHealthList
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	errJson := json.Unmarshal(body, &healthDegree)
+	errJson := json.Unmarshal(body, &AccountHealth)
 	if errJson != nil {
 		log.Fatal(err)
 	}
-	return healthDegree
+	return AccountHealth
 }
 func DoHttpBandWidthRequest(domain string, token string, rangeTime int64, delayTime int64) BandWidthList {
 	endTime := time.Now().Add(-time.Minute * time.Duration(delayTime)).Format("2006-01-02:15:04:05")
 	startTime := time.Now().Add(-time.Minute * time.Duration(rangeTime)).Format("2006-01-02:15:04:05")
-	
 	req, err := http.NewRequest("GET", httpBandWidthAddress, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -152,4 +151,3 @@ func DoHttpBandWidthResourceRequest(domain string, token string, rangeTime int64
 	return bandWidthDetail
 
 }
-
