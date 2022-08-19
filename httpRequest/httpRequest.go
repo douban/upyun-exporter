@@ -86,8 +86,7 @@ func DoHealthDegreeRequest(token string, rangeTime int64, delayTime int64) Accou
 func DoHttpBandWidthRequest(domain string, token string, rangeTime int64, delayTime int64) BandWidthList {
 	endTime := time.Now().Add(-time.Minute * time.Duration(delayTime)).Format("2006-01-02:15:04:05")
 	startTime := time.Now().Add(-time.Minute * time.Duration(rangeTime)).Format("2006-01-02:15:04:05")
-	log.Println(startTime)
-	log.Println(endTime)
+	
 	req, err := http.NewRequest("GET", httpBandWidthAddress, nil)
 	if err != nil {
 		log.Fatal(err)
