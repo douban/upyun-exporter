@@ -44,6 +44,10 @@ type BandWidthDetailList struct {
 type AccountHealthList struct {
 	Result struct {
 		Code200 int64 `json:"_200"`
+		Code206 int64 `json:"_206"`
+		Code301 int64 `json:"_301"`
+		Code303 int64 `json:"_303"`
+		Code304 int64 `json:"_304"`
 		Code400 int64 `json:"_400"`
 		Code403 int64 `json:"_403"`
 		Code404 int64 `json:"_404"`
