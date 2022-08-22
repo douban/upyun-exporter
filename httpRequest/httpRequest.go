@@ -24,6 +24,11 @@ type BandWidthList struct {
 	Interval string `json:"interval"`
 }
 type BandWidthDetailList struct {
+	Code200   int64  `json:"_200"`
+	Code206   int64  `json:"_206"`
+	Code301   int64  `json:"_301"`
+	Code303   int64  `json:"_303"`
+	Code304   int64  `json:"_304"`
 	Code400   int64  `json:"_400"`
 	Code403   int64  `json:"_403"`
 	Code404   int64  `json:"_404"`
@@ -31,7 +36,7 @@ type BandWidthDetailList struct {
 	Code499   int64  `json:"_499"`
 	Code500   int64  `json:"_500"`
 	Code502   int64  `json:"_502"`
-	COde503   int64  `json:"_503"`
+	Code503   int64  `json:"_503"`
 	Code504   int64  `json:"_504"`
 	Bandwidth string `json:"bandwidth"`
 	Reqs      int64  `json:"reqs"`
@@ -142,7 +147,6 @@ func DoHttpBandWidthResourceRequest(domain string, token string, rangeTime int64
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	var bandWidthDetail map[string][]BandWidthDetailList
 	errJson := json.Unmarshal(body, &bandWidthDetail)
 	if errJson != nil {
@@ -151,3 +155,4 @@ func DoHttpBandWidthResourceRequest(domain string, token string, rangeTime int64
 	return bandWidthDetail
 
 }
+

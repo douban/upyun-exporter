@@ -21,6 +21,10 @@ type cdnExporter struct {
 	cdnResourceBandWidth    *prometheus.Desc
 	cdnResource4xxErrorRate *prometheus.Desc
 	cdnResource5xxErrorRate *prometheus.Desc
+	cdnResource4xxCount     *prometheus.Desc
+	cdnResource5xxCount     *prometheus.Desc
+	cdnResource2xxCount     *prometheus.Desc
+	cdnResource3xxCount     *prometheus.Desc
 }
 
 func CdnCloudExporter(domainList *[]string, token string, rangeTime int64, delayTime int64) *cdnExporter {
@@ -85,6 +89,38 @@ func CdnCloudExporter(domainList *[]string, token string, rangeTime int64, delay
 			},
 			nil,
 		),
+		cdnResource2xxCount: prometheus.NewDesc(
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "resource_2xx_count"),
+			"cdn回源2xx请求数(次/分钟)",
+			[]string{
+				"instanceId",
+			},
+			nil,
+		),
+		cdnResource3xxCount: prometheus.NewDesc(
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "resource_3xx_count"),
+			"cdn回源3xx请求数(次/分钟)",
+			[]string{
+				"instanceId",
+			},
+			nil,
+		),
+		cdnResource4xxCount: prometheus.NewDesc(
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "resource_4xx_count"),
+			"cdn回源4xx请求数(次/分钟)",
+			[]string{
+				"instanceId",
+			},
+			nil,
+		),
+		cdnResource5xxCount: prometheus.NewDesc(
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "resource_5xx_count"),
+			"cdn回源5xx请求数(次/分钟)",
+			[]string{
+				"instanceId",
+			},
+			nil,
+		),
 	}
 }
 func (e *cdnExporter) Describe(ch chan<- *prometheus.Desc) {
@@ -95,14 +131,17 @@ func (e *cdnExporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.cdnResourceBandWidth
 	ch <- e.cdnResource4xxErrorRate
 	ch <- e.cdnResource5xxErrorRate
+	ch <- e.cdnResource2xxCount
+	ch <- e.cdnResource3xxCount
+	ch <- e.cdnResource4xxCount
+	ch <- e.cdnResource5xxCount
 }
 
 func (e *cdnExporter) Collect(ch chan<- prometheus.Metric) {
 	for _, domain := range *e.domainList {
 		cdnRequestData := httpRequest.DoHttpBandWidthRequest(domain, e.token, e.rangeTime, e.delayTime)
 		cdnHealthDegreeData := httpRequest.DoAccountHealthRequest(e.token, e.rangeTime, e.delayTime).Result
-		resourceRequesdata := httpRequest.DoHttpBandWidthResourceRequest(domain, e.token, e.rangeTime, e.delayTime)
-
+		resourceRequestData := httpRequest.DoHttpBandWidthResourceRequest(domain, e.token, e.rangeTime, e.delayTime)
 		var requestCountTotal float64
 		var cdnBandWidthTotal float64
 		var http4xxCodeTotal int64
@@ -110,8 +149,14 @@ func (e *cdnExporter) Collect(ch chan<- prometheus.Metric) {
 		var ResourceBandWidthCount int
 		var ResourceReqsTotal int64
 		var ResourceBandWidthTotal float64
+		var Resource2xxTotal int64
+		var Resource3xxTotal int64
 		var Resource4xxTotal int64
 		var Resource5xxTotal int64
+		var Resource2xxTotalAverage float64
+		var Resource3xxTotalAverage float64
+		var Resource4xxTotalAverage float64
+		var Resource5xxTotalAverage float64
 		var Resource4xxErrorAverage float64
 		var Resource5xxErrorAverage float64
 
@@ -119,9 +164,14 @@ func (e *cdnExporter) Collect(ch chan<- prometheus.Metric) {
 			requestCountTotal += point.Reqs
 			cdnBandWidthTotal += point.Bandwidth
 		}
-		for _, v := range resourceRequesdata {
+		for _, v := range resourceRequestData {
 			ResourceBandWidthCount = len(v)
 			for _, point := range v {
+				Resource2xxTotal += point.Code200
+				Resource2xxTotal += point.Code206
+				Resource3xxTotal += point.Code301
+				Resource3xxTotal += point.Code303
+				Resource3xxTotal += point.Code304
 				Resource4xxTotal += point.Code404
 				Resource4xxTotal += point.Code400
 				Resource4xxTotal += point.Code403
@@ -129,7 +179,7 @@ func (e *cdnExporter) Collect(ch chan<- prometheus.Metric) {
 				Resource4xxTotal += point.Code499
 				Resource5xxTotal += point.Code500
 				Resource5xxTotal += point.Code502
-				Resource5xxTotal += point.COde503
+				Resource5xxTotal += point.Code503
 				Resource5xxTotal += point.Code504
 				ResourceReqsTotal += point.Reqs
 				Float64BandWidth, err := strconv.ParseFloat(point.Bandwidth, 64)
@@ -142,6 +192,11 @@ func (e *cdnExporter) Collect(ch chan<- prometheus.Metric) {
 		Resource4xxErrorAverage = (float64(Resource4xxTotal) / float64(ResourceReqsTotal)) * 100
 		Resource5xxErrorAverage = (float64(Resource5xxTotal) / float64(ResourceReqsTotal)) * 100
 		ResourceBandWidthAverage := ResourceBandWidthTotal / float64(ResourceBandWidthCount)
+
+		Resource2xxTotalAverage = float64(Resource2xxTotal) / float64(ResourceBandWidthCount)
+		Resource3xxTotalAverage = float64(Resource3xxTotal) / float64(ResourceBandWidthCount)
+		Resource4xxTotalAverage = float64(Resource4xxTotal) / float64(ResourceBandWidthCount)
+		Resource5xxTotalAverage = float64(Resource5xxTotal) / float64(ResourceBandWidthCount)
 
 		http4xxCodeTotal = cdnHealthDegreeData.Code499 + cdnHealthDegreeData.Code400 + cdnHealthDegreeData.Code404 + cdnHealthDegreeData.Code403 + cdnHealthDegreeData.Code411
 		http5xxCodeTotal = cdnHealthDegreeData.Code500 + cdnHealthDegreeData.Code502 + cdnHealthDegreeData.Code503 + cdnHealthDegreeData.Code504
@@ -192,6 +247,30 @@ func (e *cdnExporter) Collect(ch chan<- prometheus.Metric) {
 			e.cdnResource5xxErrorRate,
 			prometheus.GaugeValue,
 			Resource5xxErrorAverage,
+			domain,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			e.cdnResource2xxCount,
+			prometheus.GaugeValue,
+			Resource2xxTotalAverage/5,
+			domain,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			e.cdnResource3xxCount,
+			prometheus.GaugeValue,
+			Resource3xxTotalAverage/5,
+			domain,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			e.cdnResource4xxCount,
+			prometheus.GaugeValue,
+			Resource4xxTotalAverage/5,
+			domain,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			e.cdnResource5xxCount,
+			prometheus.GaugeValue,
+			Resource5xxTotalAverage/5,
 			domain,
 		)
 	}
