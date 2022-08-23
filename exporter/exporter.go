@@ -202,6 +202,7 @@ func (e *cdnExporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.cdnResource3xxCount
 	ch <- e.cdnResource4xxCount
 	ch <- e.cdnResource5xxCount
+	e.cdnCodeDetail.Describe(ch)
 	e.cdnResourceCodeDetail.Describe(ch)
 }
 
