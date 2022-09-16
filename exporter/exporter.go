@@ -1,8 +1,8 @@
 package exporter
 
 import (
+	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
-	"log"
 	"strconv"
 	"upyun-test/httpRequest"
 )
@@ -14,27 +14,18 @@ func calculateRequestCountPerMin(code float64) float64 {
 }
 
 type cdnExporter struct {
-	domainList              *[]string
-	token                   string
-	rangeTime               int64
-	delayTime               int64
-	cdnRequestCount         *prometheus.Desc
-	cdnBandWidth            *prometheus.Desc
-	cdn4xxErrorRate         *prometheus.Desc
-	cdn5xxErrorRate         *prometheus.Desc
-	cdn2xxCount             *prometheus.Desc
-	cdn3xxCount             *prometheus.Desc
-	cdn4xxCount             *prometheus.Desc
-	cdn5xxCount             *prometheus.Desc
-	cdnResourceBandWidth    *prometheus.Desc
-	cdnResource4xxErrorRate *prometheus.Desc
-	cdnResource5xxErrorRate *prometheus.Desc
-	cdnResource4xxCount     *prometheus.Desc
-	cdnResource5xxCount     *prometheus.Desc
-	cdnResource2xxCount     *prometheus.Desc
-	cdnResource3xxCount     *prometheus.Desc
-	cdnResourceCodeDetail   *prometheus.GaugeVec
-	cdnCodeDetail           *prometheus.GaugeVec
+	domainList               *[]string
+	token                    string
+	rangeTime                int64
+	delayTime                int64
+	cdnRequestCount          *prometheus.Desc
+	cdnResourceRequestCount  *prometheus.Desc
+	cdnHitRate               *prometheus.Desc
+	cdnFluxHitRate           *prometheus.Desc
+	cdnBandWidth             *prometheus.Desc
+	cdnResourceBandWidth     *prometheus.Desc
+	cdnStatusRate            *prometheus.Desc
+	cdnBackSourceStatusRate  *prometheus.Desc
 }
 
 func CdnCloudExporter(domainList *[]string, token string, rangeTime int64, delayTime int64) *cdnExporter {
@@ -46,396 +37,296 @@ func CdnCloudExporter(domainList *[]string, token string, rangeTime int64, delay
 
 		cdnRequestCount: prometheus.NewDesc(
 			prometheus.BuildFQName(cdnNameSpace, "cdn", "request_count"),
-			"cdn总请求数",
+			"cdn总请求数(次/分钟)",
+			[]string{
+				"instanceId",
+			},
+			nil,
+		),
+		cdnResourceRequestCount: prometheus.NewDesc(
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "resource_request_count"),
+			"cdn回源总请求数(次/分钟)",
+			[]string{
+				"instanceId",
+			},
+			nil,
+		),
+		cdnHitRate: prometheus.NewDesc(
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "hit_rate"),
+			"cdn缓存命中率(%)",
+			[]string{
+				"instanceId",
+			},
+			nil,
+		),
+		cdnFluxHitRate: prometheus.NewDesc(
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "flux_hit_rate"),
+			"cdn缓存字节命中率(%)",
 			[]string{
 				"instanceId",
 			},
 			nil,
 		),
 		cdnBandWidth: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "cdn", "bandWidth"),
-			"cdn总带宽(Bps)",
-			[]string{
-				"instanceId",
-			},
-			nil,
-		),
-		cdn4xxErrorRate: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "cdn", "4xx_error_rate"),
-			"cdn4xx错误率",
-			[]string{
-				"instanceId",
-			},
-			nil,
-		),
-		cdn5xxErrorRate: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "cdn", "5xx_error_rate"),
-			"cdn5xx错误率",
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "bandwidth"),
+			"cdn总带宽(Mbps)",
 			[]string{
 				"instanceId",
 			},
 			nil,
 		),
 		cdnResourceBandWidth: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "backsource", "resource_bandWidth"),
-			"回源带宽(Bps)",
+			prometheus.BuildFQName(cdnNameSpace, "backsource", "resource_bandwidth"),
+			"回源带宽(Mbps)",
 			[]string{
 				"instanceId",
 			},
 			nil,
 		),
-		cdnResource4xxErrorRate: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "backsource", "resource_4xx_error_rate"),
-			"cdn回源4xx错误率",
+		cdnStatusRate: prometheus.NewDesc(
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "status_rate"),
+			"cdn状态码概率(%)",
 			[]string{
 				"instanceId",
+				"status",
 			},
 			nil,
 		),
-		cdnResource5xxErrorRate: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "backsource", "resource_5xx_error_rate"),
-			"cdn回源5xx错误率",
+		cdnBackSourceStatusRate: prometheus.NewDesc(
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "backsource_status_rate"),
+			"cdn回源状态码概率(%)",
 			[]string{
 				"instanceId",
+				"status",
 			},
 			nil,
-		),
-		cdnResource2xxCount: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "backsource", "2xx_count"),
-			"cdn回源2xx请求数(次/分钟)",
-			[]string{
-				"instanceId",
-			},
-			nil,
-		),
-		cdnResource3xxCount: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "backsource", "3xx_count"),
-			"cdn回源3xx请求数(次/分钟)",
-			[]string{
-				"instanceId",
-			},
-			nil,
-		),
-		cdnResource4xxCount: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "backsource", "4xx_count"),
-			"cdn回源4xx请求数(次/分钟)",
-			[]string{
-				"instanceId",
-			},
-			nil,
-		),
-		cdnResource5xxCount: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "backsource", "5xx_count"),
-			"cdn回源5xx请求数(次/分钟)",
-			[]string{
-				"instanceId",
-			},
-			nil,
-		),
-		cdn2xxCount: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "cdn", "2xx_count"),
-			"cdn2xx请求数(次/分钟)",
-			[]string{
-				"instanceId",
-			},
-			nil,
-		),
-		cdn3xxCount: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "cdn", "3xx_count"),
-			"cdn3xx请求数(次/分钟)",
-			[]string{
-				"instanceId",
-			},
-			nil,
-		),
-		cdn4xxCount: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "cdn", "4xx_count"),
-			"cdn4xx请求数(次/分钟)",
-			[]string{
-				"instanceId",
-			},
-			nil,
-		),
-		cdn5xxCount: prometheus.NewDesc(
-			prometheus.BuildFQName(cdnNameSpace, "cdn", "5xx_count"),
-			"cdn5xx请求数(次/分钟)",
-			[]string{
-				"instanceId",
-			},
-			nil,
-		),
-		cdnResourceCodeDetail: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Namespace: cdnNameSpace,
-				Subsystem: "backsource",
-				Name:      "code_detail",
-				Help:      "cdn回源请求数详细分布(次/分钟)",
-			},
-			[]string{
-				"instanceId",
-				"code",
-			},
-		),
-		cdnCodeDetail: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Namespace: cdnNameSpace,
-				Subsystem: "cdn",
-				Name:      "code_detail",
-				Help:      "cdn请求数详细分布(次/分钟)",
-			},
-			[]string{
-				"instanceId",
-				"code",
-			},
 		),
 	}
 }
+
 func (e *cdnExporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.cdnRequestCount
+	ch <- e.cdnResourceRequestCount
+	ch <- e.cdnHitRate
+	ch <- e.cdnFluxHitRate
 	ch <- e.cdnBandWidth
-	ch <- e.cdn4xxErrorRate
-	ch <- e.cdn5xxErrorRate
 	ch <- e.cdnResourceBandWidth
-	ch <- e.cdnResource4xxErrorRate
-	ch <- e.cdnResource5xxErrorRate
-	ch <- e.cdnResource2xxCount
-	ch <- e.cdnResource3xxCount
-	ch <- e.cdnResource4xxCount
-	ch <- e.cdnResource5xxCount
-	e.cdnCodeDetail.Describe(ch)
-	e.cdnResourceCodeDetail.Describe(ch)
+	ch <- e.cdnStatusRate
+	ch <- e.cdnBackSourceStatusRate
 }
 
 func (e *cdnExporter) Collect(ch chan<- prometheus.Metric) {
 	for _, domain := range *e.domainList {
+		var (
+			requestCountTotal      float64
+			requestCountAverage    float64
+			cdnBandWidthTotal      float64
+			cdnBandWidthAverage    float64
+			cdnHitRateTotal        float64
+			cdnHitRateAverage      float64
+			cdnFlowHitRateTotal    float64
+			cdnFlowHitRateAverage  float64
+			resourceBandwidthTotal float64
+			resourceBandwidthAverage float64
+			resourceReqsTotal      int
+			resourceCodeTotal      int
+			resourceCode200Total   int
+			resourceCode206Total   int
+			resourceCode301Total   int
+			resourceCode302Total   int
+			resourceCode304Total   int
+			resourceCode400Total   int
+			resourceCode403Total   int
+			resourceCode404Total   int
+			resourceCode411Total   int
+			resourceCode499Total   int
+			resourceCode500Total   int
+			resourceCode502Total   int
+			resourceCode503Total   int
+			resourceCode504Total   int
+			codeTotal      int
+			code200Total   int
+			code206Total   int
+			code301Total   int
+			code302Total   int
+			code304Total   int
+			code400Total   int
+			code403Total   int
+			code404Total   int
+			code411Total   int
+			code499Total   int
+			code500Total   int
+			code502Total   int
+			code503Total   int
+			code504Total   int
+		)
+
+		// interval - min_five
 		cdnRequestData := httpRequest.DoHttpBandWidthRequest(domain, e.token, e.rangeTime, e.delayTime)
-		cdnAccountHealthData := httpRequest.DoAccountHealthRequest(e.token, e.rangeTime, e.delayTime).Result
-		resourceRequestData := httpRequest.DoHttpBandWidthResourceRequest(domain, e.token, e.rangeTime, e.delayTime)
-		var requestCountTotal float64
-		var cdnBandWidthTotal float64
-		var http2xxCodeTotal int64
-		var http3xxCodeTotal int64
-		var http4xxCodeTotal int64
-		var http5xxCodeTotal int64
-		var ResourceBandWidthCount int
-		var ResourceReqsTotal int64
-		var ResourceBandWidthTotal float64
-		var Resource2xxTotal int64
-		var Resource3xxTotal int64
-		var Resource4xxTotal int64
-		var Resource5xxTotal int64
-		var Resource2xxTotalAverage float64
-		var Resource3xxTotalAverage float64
-		var Resource4xxTotalAverage float64
-		var Resource5xxTotalAverage float64
-		var Resource4xxErrorAverage float64
-		var Resource5xxErrorAverage float64
-
-		var Code200 int64
-		var Code206 int64
-		var Code301 int64
-		var Code303 int64
-		var Code304 int64
-		var Code400 int64
-		var Code403 int64
-		var Code404 int64
-		var Code411 int64
-		var Code499 int64
-		var Code500 int64
-		var Code502 int64
-		var Code503 int64
-		var Code504 int64
-
 		for _, point := range cdnRequestData.Data {
 			requestCountTotal += point.Reqs
 			cdnBandWidthTotal += point.Bandwidth
 		}
-		for _, v := range resourceRequestData {
-			ResourceBandWidthCount = len(v)
-			for _, point := range v {
-				Resource2xxTotal += point.Code200
-				Code200 = point.Code200
-				Resource2xxTotal += point.Code206
-				Code206 = point.Code206
-				Resource3xxTotal += point.Code301
-				Code301 = point.Code301
-				Resource3xxTotal += point.Code303
-				Code303 = point.Code303
-				Resource3xxTotal += point.Code304
-				Code304 = point.Code304
-				Resource4xxTotal += point.Code404
-				Code404 = point.Code404
-				Resource4xxTotal += point.Code400
-				Code400 = point.Code400
-				Resource4xxTotal += point.Code403
-				Code403 = point.Code403
-				Resource4xxTotal += point.Code411
-				Code411 = point.Code411
-				Resource4xxTotal += point.Code499
-				Code499 = point.Code499
-				Resource5xxTotal += point.Code500
-				Code500 = point.Code500
-				Resource5xxTotal += point.Code502
-				Code502 = point.Code502
-				Resource5xxTotal += point.Code503
-				Code503 = point.Code503
-				Resource5xxTotal += point.Code504
-				Code504 = point.Code504
-				ResourceReqsTotal += point.Reqs
-				Float64BandWidth, err := strconv.ParseFloat(point.Bandwidth, 64)
-				if err != nil {
-					log.Fatal(err)
-				}
-				ResourceBandWidthTotal += Float64BandWidth
-			}
+		// 去掉数据量为0的数据，得到的结果是NaN
+		if requestCountTotal == 0 || cdnBandWidthTotal == 0 {
+			continue
 		}
-		Resource4xxErrorAverage = (float64(Resource4xxTotal) / float64(ResourceReqsTotal)) * 100
-		Resource5xxErrorAverage = (float64(Resource5xxTotal) / float64(ResourceReqsTotal)) * 100
-		ResourceBandWidthAverage := ResourceBandWidthTotal / float64(ResourceBandWidthCount)
+		requestCountAverage = requestCountTotal / float64(len(cdnRequestData.Data))
+		cdnBandWidthAverage = cdnBandWidthTotal / float64(len(cdnRequestData.Data))
 
-		Resource2xxTotalAverage = float64(Resource2xxTotal) / float64(ResourceBandWidthCount)
-		Resource3xxTotalAverage = float64(Resource3xxTotal) / float64(ResourceBandWidthCount)
-		Resource4xxTotalAverage = float64(Resource4xxTotal) / float64(ResourceBandWidthCount)
-		Resource5xxTotalAverage = float64(Resource5xxTotal) / float64(ResourceBandWidthCount)
+		cdnFlowDetailData := httpRequest.DoHttpFlowDetailRequest(domain, e.token, e.rangeTime, e.delayTime, "cdn")
+		// response 返回为 {}
+		if cdnFlowDetailData == nil {
+			continue
+		}
+		statusCodes := make(map[string]float64)
+		for _, point := range cdnFlowDetailData {
+			cdnHitRateTotal = cdnHitRateTotal + (float64(point.Hit) / float64(point.Reqs))
+			cdnFlowHitRateTotal = cdnFlowHitRateTotal + (float64(point.HitBytes) / float64(point.Bytes))
+			code200Total += point.Code200
+			code206Total += point.Code206
+			code301Total += point.Code301
+			code302Total += point.Code302
+			code304Total += point.Code304
+			code400Total += point.Code400
+			code403Total += point.Code403
+			code404Total += point.Code404
+			code411Total += point.Code411
+			code499Total += point.Code499
+			code500Total += point.Code500
+			code502Total += point.Code502
+			code503Total += point.Code503
+			code504Total += point.Code504
+		}
+		codeTotal = code200Total + code206Total + code301Total + code302Total + code304Total + code400Total + code403Total +
+			code404Total + code411Total + code499Total + code500Total + code502Total + code503Total + code504Total
+		statusCodes["200"] = float64(code200Total) / float64(codeTotal)
+		statusCodes["206"] = float64(code206Total) / float64(codeTotal)
+		statusCodes["2xx"] = float64(code200Total + code206Total) / float64(codeTotal)
+		statusCodes["301"] = float64(code301Total) / float64(codeTotal)
+		statusCodes["302"] = float64(code302Total) / float64(codeTotal)
+		statusCodes["304"] = float64(code304Total) / float64(codeTotal)
+		statusCodes["3xx"] = float64(code301Total + code302Total + code304Total) / float64(codeTotal)
+		statusCodes["400"] = float64(code400Total) / float64(codeTotal)
+		statusCodes["403"] = float64(code403Total) / float64(codeTotal)
+		statusCodes["404"] = float64(code404Total) / float64(codeTotal)
+		statusCodes["411"] = float64(code411Total) / float64(codeTotal)
+		statusCodes["499"] = float64(code499Total) / float64(codeTotal)
+		statusCodes["4xx"] = float64(code400Total + code403Total + code404Total + code411Total + code499Total) / float64(codeTotal)
+		statusCodes["500"] = float64(code500Total) / float64(codeTotal)
+		statusCodes["502"] = float64(code502Total) / float64(codeTotal)
+		statusCodes["503"] = float64(code503Total) / float64(codeTotal)
+		statusCodes["504"] = float64(code504Total) / float64(codeTotal)
+		statusCodes["5xx"] = float64(code500Total + code502Total + code503Total + code504Total) / float64(codeTotal)
 
-		http2xxCodeTotal = cdnAccountHealthData.Code200 + cdnAccountHealthData.Code206
-		http3xxCodeTotal = cdnAccountHealthData.Code301 + cdnAccountHealthData.Code303 + cdnAccountHealthData.Code304
-		http4xxCodeTotal = cdnAccountHealthData.Code499 + cdnAccountHealthData.Code400 + cdnAccountHealthData.Code404 + cdnAccountHealthData.Code403 + cdnAccountHealthData.Code411
-		http5xxCodeTotal = cdnAccountHealthData.Code500 + cdnAccountHealthData.Code502 + cdnAccountHealthData.Code503 + cdnAccountHealthData.Code504
+		cdnHitRateAverage, _ = strconv.ParseFloat(fmt.Sprintf("%.3f", (cdnHitRateTotal / float64(len(cdnFlowDetailData))) * 100), 64)
+		cdnFlowHitRateAverage, _ = strconv.ParseFloat(fmt.Sprintf("%.3f", (cdnFlowHitRateTotal / float64(len(cdnFlowDetailData))) * 100), 64)
 
-		http4xxErrorRate := float64(http4xxCodeTotal) / float64(cdnAccountHealthData.Req)
-		http5xxErrorRate := float64(http5xxCodeTotal) / float64(cdnAccountHealthData.Req)
+		// 回源数据
+		resourceRequestData := httpRequest.DoHttpFlowDetailRequest(domain, e.token, e.rangeTime, e.delayTime, "backsource")
+		// response 返回为 {}
+		if resourceRequestData == nil {
+			continue
+		}
+		for _, point := range resourceRequestData {
+			resourceCode200Total += point.Code200
+			resourceCode206Total += point.Code206
+			resourceCode301Total += point.Code301
+			resourceCode302Total += point.Code302
+			resourceCode304Total += point.Code304
+			resourceCode400Total += point.Code400
+			resourceCode403Total += point.Code403
+			resourceCode404Total += point.Code404
+			resourceCode411Total += point.Code411
+			resourceCode499Total += point.Code499
+			resourceCode500Total += point.Code500
+			resourceCode502Total += point.Code502
+			resourceCode503Total += point.Code503
+			resourceCode504Total += point.Code504
+			resourceBandwidthTotal += point.Bandwidth
+			resourceReqsTotal += point.Reqs
+		}
+		resourceStatusCodes := make(map[string]float64)
+		resourceCodeTotal = resourceCode200Total + resourceCode206Total + resourceCode301Total + resourceCode302Total +
+			resourceCode304Total + resourceCode400Total + resourceCode403Total + resourceCode404Total + resourceCode411Total +
+			resourceCode499Total + resourceCode500Total + resourceCode502Total + resourceCode503Total + resourceCode504Total
 
-		cdnBandWidthAverage := cdnBandWidthTotal / float64(len(cdnRequestData.Data))
-		requestCountAverage := requestCountTotal / float64(len(cdnRequestData.Data))
+		resourceStatusCodes["200"] = float64(resourceCode200Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["206"] = float64(resourceCode206Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["2xx"] = float64(resourceCode200Total + resourceCode206Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["301"] = float64(resourceCode301Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["302"] = float64(resourceCode302Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["304"] = float64(resourceCode304Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["3xx"] = float64(resourceCode301Total + resourceCode302Total + resourceCode304Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["400"] = float64(resourceCode400Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["403"] = float64(resourceCode403Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["404"] = float64(resourceCode404Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["411"] = float64(resourceCode411Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["499"] = float64(resourceCode499Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["4xx"] = float64(resourceCode400Total + resourceCode403Total + resourceCode404Total + resourceCode411Total + resourceCode499Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["500"] = float64(resourceCode500Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["502"] = float64(resourceCode502Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["503"] = float64(resourceCode503Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["504"] = float64(resourceCode504Total) / float64(resourceCodeTotal)
+		resourceStatusCodes["5xx"] = float64(resourceCode500Total + resourceCode502Total + resourceCode503Total + resourceCode504Total) / float64(resourceCodeTotal)
+		resourceBandwidthAverage = resourceBandwidthTotal / float64(len(resourceRequestData))
+		resourceReqsAverage := float64(resourceReqsTotal) / float64(len(resourceRequestData))
 
 		ch <- prometheus.MustNewConstMetric(
 			e.cdnRequestCount,
 			prometheus.GaugeValue,
-			requestCountAverage,
+			calculateRequestCountPerMin(requestCountAverage),
+			domain,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			e.cdnResourceRequestCount,
+			prometheus.GaugeValue,
+			calculateRequestCountPerMin(resourceReqsAverage),
+			domain,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			e.cdnHitRate,
+			prometheus.GaugeValue,
+			cdnHitRateAverage,
+			domain,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			e.cdnFluxHitRate,
+			prometheus.GaugeValue,
+			cdnFlowHitRateAverage,
 			domain,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			e.cdnBandWidth,
 			prometheus.GaugeValue,
-			cdnBandWidthAverage,
-			domain,
-		)
-		ch <- prometheus.MustNewConstMetric(
-			e.cdn4xxErrorRate,
-			prometheus.GaugeValue,
-			http4xxErrorRate,
-			domain,
-		)
-		ch <- prometheus.MustNewConstMetric(
-			e.cdn5xxErrorRate,
-			prometheus.GaugeValue,
-			http5xxErrorRate,
+			cdnBandWidthAverage / 1024 / 1024,
 			domain,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			e.cdnResourceBandWidth,
 			prometheus.GaugeValue,
-			ResourceBandWidthAverage,
+			resourceBandwidthAverage / 1024 / 1024,
 			domain,
 		)
-		ch <- prometheus.MustNewConstMetric(
-			e.cdnResource4xxErrorRate,
-			prometheus.GaugeValue,
-			Resource4xxErrorAverage,
-			domain,
-		)
-		ch <- prometheus.MustNewConstMetric(
-			e.cdnResource5xxErrorRate,
-			prometheus.GaugeValue,
-			Resource5xxErrorAverage,
-			domain,
-		)
-		ch <- prometheus.MustNewConstMetric(
-			e.cdnResource2xxCount,
-			prometheus.GaugeValue,
-			calculateRequestCountPerMin(Resource2xxTotalAverage),
-			domain,
-		)
-		ch <- prometheus.MustNewConstMetric(
-			e.cdnResource3xxCount,
-			prometheus.GaugeValue,
-			calculateRequestCountPerMin(Resource3xxTotalAverage),
-			domain,
-		)
-		ch <- prometheus.MustNewConstMetric(
-			e.cdnResource4xxCount,
-			prometheus.GaugeValue,
-			calculateRequestCountPerMin(Resource4xxTotalAverage),
-			domain,
-		)
-		ch <- prometheus.MustNewConstMetric(
-			e.cdnResource5xxCount,
-			prometheus.GaugeValue,
-			calculateRequestCountPerMin(Resource5xxTotalAverage),
-			domain,
-		)
-
-		ch <- prometheus.MustNewConstMetric(
-			e.cdn2xxCount,
-			prometheus.GaugeValue,
-			calculateRequestCountPerMin(float64(http2xxCodeTotal)),
-			domain,
-		)
-
-		ch <- prometheus.MustNewConstMetric(
-			e.cdn3xxCount,
-			prometheus.GaugeValue,
-			calculateRequestCountPerMin(float64(http3xxCodeTotal)),
-			domain,
-		)
-
-		ch <- prometheus.MustNewConstMetric(
-			e.cdn4xxCount,
-			prometheus.GaugeValue,
-			calculateRequestCountPerMin(float64(http4xxCodeTotal)),
-			domain,
-		)
-
-		ch <- prometheus.MustNewConstMetric(
-			e.cdn5xxCount,
-			prometheus.GaugeValue,
-			calculateRequestCountPerMin(float64(http5xxCodeTotal)),
-			domain,
-		)
-
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code200").Set(calculateRequestCountPerMin(float64(Code200)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code206").Set(calculateRequestCountPerMin(float64(Code206)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code301").Set(calculateRequestCountPerMin(float64(Code301)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code303").Set(calculateRequestCountPerMin(float64(Code303)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code304").Set(calculateRequestCountPerMin(float64(Code304)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code400").Set(calculateRequestCountPerMin(float64(Code400)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code403").Set(calculateRequestCountPerMin(float64(Code403)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code404").Set(calculateRequestCountPerMin(float64(Code404)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code411").Set(calculateRequestCountPerMin(float64(Code411)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code499").Set(calculateRequestCountPerMin(float64(Code499)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code500").Set(calculateRequestCountPerMin(float64(Code500)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code502").Set(calculateRequestCountPerMin(float64(Code502)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code503").Set(calculateRequestCountPerMin(float64(Code503)))
-		e.cdnResourceCodeDetail.WithLabelValues(domain, "code504").Set(calculateRequestCountPerMin(float64(Code504)))
-
-		e.cdnCodeDetail.WithLabelValues(domain, "code200").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code200)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code206").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code206)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code301").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code301)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code303").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code303)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code304").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code304)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code400").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code400)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code403").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code403)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code404").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code404)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code411").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code411)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code499").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code499)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code500").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code500)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code502").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code502)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code503").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code503)))
-		e.cdnCodeDetail.WithLabelValues(domain, "code504").Set(calculateRequestCountPerMin(float64(cdnAccountHealthData.Code504)))
-
-		e.cdnResourceCodeDetail.Collect(ch)
-		e.cdnCodeDetail.Collect(ch)
-
+		for status, rate := range resourceStatusCodes {
+			statusRate, _ := strconv.ParseFloat(fmt.Sprintf("%.3f", rate * 100), 64)
+			ch <- prometheus.MustNewConstMetric(
+				e.cdnBackSourceStatusRate,
+				prometheus.GaugeValue,
+				statusRate,
+				domain,
+				status,
+			)
+		}
+		for status, rate := range statusCodes {
+			statusRate, _ := strconv.ParseFloat(fmt.Sprintf("%.3f", rate * 100), 64)
+			ch <- prometheus.MustNewConstMetric(
+				e.cdnStatusRate,
+				prometheus.GaugeValue,
+				statusRate,
+				domain,
+				status,
+			)
+		}
 	}
 }
