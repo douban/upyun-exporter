@@ -146,9 +146,10 @@ func DoHttpFlowDetailRequest(domain string, token string, rangeTime int64, delay
 	params.Add("query_type", "domain")
 	params.Add("query_value", domain)
 	params.Add("sum_data", "true")
+	// httpcode中不包括200，只有206-504
 	if flowSource == "cdn" {
 		params.Add("full_region_isp", "true")
-		params.Add("fields", "httpcode,hit_bytes,hit,bytes,reqs")
+		params.Add("fields", "httpcode,hit_bytes,hit,bytes,reqs,_200")
 	} else {
 		params.Add("flow_source", flowSource)
 	}
