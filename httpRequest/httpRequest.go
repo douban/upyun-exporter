@@ -102,8 +102,10 @@ func DoDomainListRequest(token string) []string {
 }
 
 func DoHttpBandWidthRequest(domain string, token string, rangeTime int64, delayTime int64) BandWidthList {
-	endTime := time.Now().Add(-time.Second * time.Duration(delayTime)).Format("2006-01-02:15:04:05")
-	startTime := time.Now().Add(-time.Second * time.Duration(rangeTime)).Format("2006-01-02:15:04:05")
+	timeZone, _ := time.LoadLocation("Asia/Shanghai")
+	timeNow := time.Now().In(timeZone)
+	endTime := timeNow.Add(-time.Second * time.Duration(delayTime)).Format("2006-01-02:15:04:05")
+	startTime := timeNow.Add(-time.Second * time.Duration(rangeTime)).Format("2006-01-02:15:04:05")
 	req, err := http.NewRequest("GET", httpBandWidthAddress, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -134,8 +136,10 @@ func DoHttpBandWidthRequest(domain string, token string, rangeTime int64, delayT
 }
 
 func DoHttpFlowDetailRequest(domain string, token string, rangeTime int64, delayTime int64, flowSource string) []FlowDetail {
-	endTime := time.Now().Add(-time.Second * time.Duration(delayTime)).Format("2006-01-02:15:04:05")
-	startTime := time.Now().Add(-time.Second * time.Duration(rangeTime)).Format("2006-01-02:15:04:05")
+	timeZone, _ := time.LoadLocation("Asia/Shanghai")
+	timeNow := time.Now().In(timeZone)
+	endTime := timeNow.Add(-time.Second * time.Duration(delayTime)).Format("2006-01-02:15:04:05")
+	startTime := timeNow.Add(-time.Second * time.Duration(rangeTime)).Format("2006-01-02:15:04:05")
 	req, err := http.NewRequest("GET", httpBandWidthDetailAddress, nil)
 	if err != nil {
 		log.Fatal(err)
