@@ -183,11 +183,15 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 
 		cdnFlowDetailData, err := httpRequest.DoHttpFlowDetailRequest(domain, e.token, e.rangeTime, e.delayTime, "cdn")
 		if err != nil {
-			ch <- prometheus.NewInvalidMetric(
-				prometheus.NewDesc("upyun_exporter",
-					"Error collecting cdn flow details", nil, nil),
-				err)
-			break
+			if err.T == httpRequest.ResponseCodeNot200 {
+				ch <- prometheus.NewInvalidMetric(
+					prometheus.NewDesc("upyun_exporter",
+						"Error collecting cdn flow details", nil, nil),
+					err)
+				break
+			} else {
+				continue
+			}
 		}
 		statusCodes := make(map[string]float64)
 		for _, point := range cdnFlowDetailData {

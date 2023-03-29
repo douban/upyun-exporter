@@ -2,7 +2,6 @@ package httpRequest
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -38,6 +37,29 @@ type BandWidthList struct {
 		Time      float64 `json:"time"`
 	} `json:"data"`
 	Interval string `json:"interval"`
+}
+
+type ApiErrorType uint8
+
+const (
+	ParseError ApiErrorType = iota
+	ResponseCodeNot200
+)
+
+type ApiError struct {
+	Message string
+	T       ApiErrorType
+}
+
+func (r *ApiError) Error() string {
+	return fmt.Sprintf("code: %v, message: %s", r.T, r.Message)
+}
+
+func NewRequestError(message string, t ApiErrorType) *ApiError {
+	return &ApiError{
+		Message: message,
+		T:       t,
+	}
 }
 
 type FlowDetail struct {
@@ -146,7 +168,7 @@ func DoHttpBandWidthRequest(domain string, token string, rangeTime int64, delayT
 	return BandWidth
 }
 
-func DoHttpFlowDetailRequest(domain string, token string, rangeTime int64, delayTime int64, flowSource string) ([]FlowDetail, error) {
+func DoHttpFlowDetailRequest(domain string, token string, rangeTime int64, delayTime int64, flowSource string) ([]FlowDetail, *ApiError) {
 	timeZone, _ := time.LoadLocation("Asia/Shanghai")
 	timeNow := time.Now().In(timeZone)
 	endTime := timeNow.Add(-time.Second * time.Duration(delayTime)).Format("2006-01-02 15:04:05")
@@ -183,16 +205,16 @@ func DoHttpFlowDetailRequest(domain string, token string, rangeTime int64, delay
 	}
 	if response.StatusCode != 200 {
 		log.Printf("request: %v", req)
-		return nil, errors.New(fmt.Sprintf("get flow data failed, return code not 200, response body: %s",
-			string(body)))
+		return nil, NewRequestError(fmt.Sprintf("get flow data failed, return code not 200, response body: %s",
+			string(body)), ResponseCodeNot200)
 	}
 
 	var detailList []FlowDetail
 	err = json.Unmarshal(body, &detailList)
 	if err != nil {
 		log.Printf("failed to collect domain flow detail, domain: %s, response: %s", domain, string(body))
-		return nil, errors.New(fmt.Sprintf("Failed to decode body to flow detail, domain: %s, response: %s, error: %v",
-			domain, string(body), err))
+		return nil, NewRequestError(fmt.Sprintf("Failed to decode body to flow detail, domain: %s, response: %s, error: %v",
+			domain, string(body), err), ParseError)
 
 	}
 	return detailList, nil
