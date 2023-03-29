@@ -191,7 +191,7 @@ func DoHttpFlowDetailRequest(domain string, token string, rangeTime int64, delay
 	err = json.Unmarshal(body, &detailList)
 	if err != nil {
 		log.Printf("failed to collect domain flow detail, domain: %s, response: %s", domain, string(body))
-		return nil, errors.New(fmt.Sprintf("Failed to decode body to flow detail, domain: %s, response: %s, error:",
+		return nil, errors.New(fmt.Sprintf("Failed to decode body to flow detail, domain: %s, response: %s, error: %v",
 			domain, string(body), err))
 
 	}
