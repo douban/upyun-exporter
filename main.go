@@ -10,16 +10,14 @@ import (
 	"os"
 	"strconv"
 	"time"
-	"upyun-test/exporter"
-	"upyun-test/httpRequest"
+	"upyun-exporter/exporter"
+	"upyun-exporter/httpRequest"
 )
 
 var domainList []string
 
 func FetchDomainList(token string) {
 	domainList = httpRequest.DoDomainListRequest(token)
-	//domainList = []string{"img7.doubanio.com"}
-
 }
 
 func main() {
@@ -29,10 +27,12 @@ func main() {
 	port := flag.Int("port", 9300, "服务监听端口")
 	delayTime := flag.Int64("delayTime", 300, "时间偏移量, 结束时间=now-delay_seconds")
 	rangeTime := flag.Int64("rangeTime", 1800, "选取时间范围, 开始时间=now-range_seconds, 结束时间=now")
-	tickerTime := flag.Int("tickerTime", 10,  "刷新域名列表间隔时间")
+	tickerTime := flag.Int("tickerTime", 3600, "刷新域名列表间隔时间")
 	metricsPath := flag.String("metricsPath", "/metrics", "默认的metrics路径")
+	flag.Parse()
 	ticker := time.NewTicker(time.Duration(*tickerTime) * time.Second)
 	done := make(chan bool)
+	FetchDomainList(*bucketToken)
 	go func() {
 		for {
 			select {
@@ -63,4 +63,3 @@ func main() {
 
 	log.Fatal(http.ListenAndServe(listenAddress, nil))
 }
-
