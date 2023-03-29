@@ -11,9 +11,13 @@ import (
 	"time"
 )
 
-const domainListAddress = "https://api.upyun.com/buckets"
-const httpBandWidthAddress = "https://api.upyun.com/v2/statistics"
-const httpBandWidthDetailAddress = "https://api.upyun.com/flow/common_data"
+const (
+	domainListAddress                       = "https://api.upyun.com/buckets"
+	httpBandWidthAddress                    = "https://api.upyun.com/v2/statistics"
+	httpBandWidthDetailAddress              = "https://api.upyun.com/flow/common_data"
+	ParseError                 ApiErrorType = iota
+	ResponseCodeNot200
+)
 
 type DomainList struct {
 	Domain string `json:"domain"`
@@ -40,11 +44,6 @@ type BandWidthList struct {
 }
 
 type ApiErrorType uint8
-
-const (
-	ParseError ApiErrorType = iota
-	ResponseCodeNot200
-)
 
 type ApiError struct {
 	Message string
