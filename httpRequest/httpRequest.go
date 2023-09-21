@@ -97,6 +97,7 @@ func DoDomainListRequest(token string) []string {
 
 	client := &http.Client{}
 	response, err := client.Do(req)
+	defer response.Body.Close()
 	if err != nil {
 		log.Fatal("请求失败", err)
 	}
@@ -149,6 +150,7 @@ func DoHttpBandWidthRequest(domain string, token string, rangeTime int64, delayT
 	req.Header.Set("Authorization", "Bearer "+token)
 	client := &http.Client{}
 	response, err := client.Do(req)
+	defer response.Body.Close()
 	if err != nil {
 		log.Fatal("请求失败", err)
 	}
@@ -195,6 +197,7 @@ func DoHttpFlowDetailRequest(domain string, token string, rangeTime int64, delay
 
 	client := &http.Client{}
 	response, err := client.Do(req)
+	defer response.Body.Close()
 	if err != nil {
 		log.Fatal("请求失败", err)
 	}
