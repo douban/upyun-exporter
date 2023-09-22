@@ -83,6 +83,32 @@ type FlowDetail struct {
 	Bytes     int     `json:"bytes"`
 }
 
+type BucketInfo struct {
+	BucketName         string        `json:"bucket_name,omitempty"`
+	Type               string        `json:"type,omitempty"`
+	BusinessType       string        `json:"business_type,omitempty"`
+	Status             string        `json:"status,omitempty"`
+	Separator          string        `json:"separator,omitempty"`
+	Visible            bool          `json:"visible,omitempty"`
+	FormApiSecret      string        `json:"form_api_secret,omitempty"`
+	CreatedAt          string        `json:"created_at,omitempty"`
+	BucketRemark       string        `json:"bucket_remark,omitempty"`
+	ApprovalDomains    []string      `json:"approval_domains,omitempty"`
+	DisapprovalDomains []interface{} `json:"disapproval_domains,omitempty"`
+	ApprovalingDomains []interface{} `json:"approvaling_domains,omitempty"`
+	PurgeControl       int           `json:"purge_control,omitempty"`
+	DefaultDomain      struct {
+		Https      bool   `json:"https,omitempty"`
+		ForceHttps bool   `json:"force_https,omitempty"`
+		Domain     string `json:"domain,omitempty"`
+	} `json:"default_domain,omitempty"`
+	Operators        []string `json:"operators,omitempty"`
+	FusionCdn        bool     `json:"fusion_cdn,omitempty"`
+	SecurityCdn      bool     `json:"security_cdn,omitempty"`
+	Websocket        bool     `json:"websocket,omitempty"`
+	InfrequentAccess bool     `json:"infrequent_access,omitempty"`
+}
+
 func DoDomainListRequest(token string) []string {
 	req, err := http.NewRequest("GET", domainListAddress, nil)
 	if err != nil {
@@ -120,6 +146,10 @@ func DoDomainListRequest(token string) []string {
 	}
 
 	for _, bucket := range bucketList.Buckets {
+		bucketInfo := GetBucketInfo(bucket.BucketName, token)
+		if !bucketInfo.Visible {
+			continue
+		}
 		for _, domain := range bucket.Domains {
 			if strings.Contains(domain.Domain, "upaiyun") || strings.Contains(domain.Domain, "upcdn") {
 				continue
@@ -128,6 +158,41 @@ func DoDomainListRequest(token string) []string {
 		}
 	}
 	return domainList
+}
+
+func GetBucketInfo(domain string, token string) BucketInfo {
+	req, err := http.NewRequest("GET", "https://api.upyun.com/buckets/info", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	params := make(url.Values)
+	params.Add("bucket_name", domain)
+	req.URL.RawQuery = params.Encode()
+
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	response, err := client.Do(req)
+	defer response.Body.Close()
+	if err != nil {
+		log.Fatal("请求失败", err)
+	}
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Fatalf("failed to read response body: %s", err)
+	}
+	if response.StatusCode != 200 {
+		log.Printf("request: %v, response: %v", req, response)
+		log.Fatalf("get domain info failed, return code not 200, response code: %v, response body: %s", response.StatusCode, string(body))
+	}
+
+	var bucketInfo BucketInfo
+
+	err = json.Unmarshal(body, &bucketInfo)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return bucketInfo
 }
 
 func DoHttpBandWidthRequest(domain string, token string, rangeTime int64, delayTime int64) BandWidthList {
