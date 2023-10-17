@@ -125,9 +125,8 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 				"Error collecting cdn metrics", nil, nil),
 			errors.New("empty domain list"))
 	}
+	var wg sync.WaitGroup
 	for _, domain := range *e.domainList {
-
-		var wg sync.WaitGroup
 		domain := domain
 		wg.Add(1)
 		go func() {
@@ -362,6 +361,6 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 				)
 			}
 		}()
-		wg.Wait()
 	}
+	wg.Wait()
 }
