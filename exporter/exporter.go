@@ -157,7 +157,7 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(
 				e.cdnBandWidth,
 				prometheus.GaugeValue,
-				cdnBandWidthAverage/1024/1024,
+				cdnBandWidthAverage/1000/1000,
 				domain,
 			)
 		}()
@@ -340,7 +340,7 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(
 				e.cdnResourceBandWidth,
 				prometheus.GaugeValue,
-				resourceBandwidthAverage/1024/1024,
+				resourceBandwidthAverage/1000/1000,
 				domain,
 			)
 
