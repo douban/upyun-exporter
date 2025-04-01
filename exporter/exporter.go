@@ -201,7 +201,8 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 			)
 
 			for _, point := range cdnFlowDetailData {
-				cdnHitRateTotal = cdnHitRateTotal + (float64(point.Hit) / float64(point.Reqs))
+				// FIXME: upyun treats 403 as not hit
+				cdnHitRateTotal = cdnHitRateTotal + (float64(point.Hit) + float64(point.Code403)) / float64(point.Reqs)
 				cdnFlowHitRateTotal = cdnFlowHitRateTotal + (float64(point.HitBytes) / float64(point.Bytes))
 				code200Total += point.Code200
 				code206Total += point.Code206
