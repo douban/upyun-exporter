@@ -2,8 +2,6 @@ package main
 
 import (
 	"flag"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net"
 	"net/http"
@@ -12,6 +10,9 @@ import (
 	"time"
 	"upyun-exporter/exporter"
 	"upyun-exporter/httpRequest"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var domainList []string

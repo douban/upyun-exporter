@@ -3,11 +3,12 @@ package exporter
 import (
 	"errors"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
 	"log"
 	"strconv"
 	"sync"
 	"upyun-exporter/httpRequest"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const cdnNameSpace = "upyun"
@@ -17,18 +18,21 @@ func calculateRequestCountPerMin(code float64) float64 {
 }
 
 type CdnExporter struct {
-	domainList              *[]string
-	token                   string
-	rangeTime               int64
-	delayTime               int64
-	cdnRequestCount         *prometheus.Desc
-	cdnResourceRequestCount *prometheus.Desc
-	cdnHitRate              *prometheus.Desc
-	cdnFluxHitRate          *prometheus.Desc
-	cdnBandWidth            *prometheus.Desc
-	cdnResourceBandWidth    *prometheus.Desc
-	cdnStatusRate           *prometheus.Desc
-	cdnBackSourceStatusRate *prometheus.Desc
+	domainList               *[]string
+	token                    string
+	rangeTime                int64
+	delayTime                int64
+	cdnRequestCount          *prometheus.Desc
+	cdnResourceRequestCount  *prometheus.Desc
+	cdnHitRate               *prometheus.Desc
+	cdnFluxHitRate           *prometheus.Desc
+	cdnBandWidth             *prometheus.Desc
+	cdnResourceBandWidth     *prometheus.Desc
+	cdnStatusRate            *prometheus.Desc
+	cdnBackSourceStatusRate  *prometheus.Desc
+	cdnStatusCount           *prometheus.Desc
+	cdnBackSourceStatusCount *prometheus.Desc
+	cdnHitTotal              *prometheus.Desc
 }
 
 func CdnCloudExporter(domainList *[]string, token string, rangeTime int64, delayTime int64) *CdnExporter {
@@ -88,7 +92,7 @@ func CdnCloudExporter(domainList *[]string, token string, rangeTime int64, delay
 		),
 		cdnStatusRate: prometheus.NewDesc(
 			prometheus.BuildFQName(cdnNameSpace, "cdn", "status_rate"),
-			"cdn状态码概率(%)",
+			"cdn状态码比例(%)",
 			[]string{
 				"instanceId",
 				"status",
@@ -97,10 +101,36 @@ func CdnCloudExporter(domainList *[]string, token string, rangeTime int64, delay
 		),
 		cdnBackSourceStatusRate: prometheus.NewDesc(
 			prometheus.BuildFQName(cdnNameSpace, "cdn", "backsource_status_rate"),
-			"cdn回源状态码概率(%)",
+			"cdn回源状态码比例(%)",
 			[]string{
 				"instanceId",
 				"status",
+			},
+			nil,
+		),
+		cdnStatusCount: prometheus.NewDesc(
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "status_count"),
+			"cdn状态码数量(个)",
+			[]string{
+				"instanceId",
+				"status",
+			},
+			nil,
+		),
+		cdnBackSourceStatusCount: prometheus.NewDesc(
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "backsource_status_count"),
+			"cdn回源状态码数量(个)",
+			[]string{
+				"instanceId",
+				"status",
+			},
+			nil,
+		),
+		cdnHitTotal: prometheus.NewDesc(
+			prometheus.BuildFQName(cdnNameSpace, "cdn", "hit_total"),
+			"cdn缓存命中数(次)",
+			[]string{
+				"instanceId",
 			},
 			nil,
 		),
@@ -116,6 +146,9 @@ func (e *CdnExporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.cdnResourceBandWidth
 	ch <- e.cdnStatusRate
 	ch <- e.cdnBackSourceStatusRate
+	ch <- e.cdnStatusCount
+	ch <- e.cdnBackSourceStatusCount
+	ch <- e.cdnHitTotal
 }
 
 func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
@@ -180,6 +213,7 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 			}
 
 			statusCodes := make(map[string]float64)
+			statusCounts := make(map[string]float64)
 			var (
 				cdnHitRateTotal     float64
 				cdnFlowHitRateTotal float64
@@ -198,12 +232,13 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 				code502Total        int
 				code503Total        int
 				code504Total        int
+				hitTotal            int
 			)
 
 			for _, point := range cdnFlowDetailData {
-				// FIXME: upyun treats 403 as not hit
-				cdnHitRateTotal = cdnHitRateTotal + (float64(point.Hit) + float64(point.Code403)) / float64(point.Reqs)
+				cdnHitRateTotal = cdnHitRateTotal + (float64(point.Hit))/float64(point.Reqs)
 				cdnFlowHitRateTotal = cdnFlowHitRateTotal + (float64(point.HitBytes) / float64(point.Bytes))
+				hitTotal += point.Hit
 				code200Total += point.Code200
 				code206Total += point.Code206
 				code301Total += point.Code301
@@ -240,6 +275,26 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 			statusCodes["504"] = float64(code504Total) / float64(codeTotal)
 			statusCodes["5xx"] = float64(code500Total+code502Total+code503Total+code504Total) / float64(codeTotal)
 
+			// counts
+			statusCounts["200"] = float64(code200Total)
+			statusCounts["206"] = float64(code206Total)
+			statusCounts["2xx"] = float64(code200Total + code206Total)
+			statusCounts["301"] = float64(code301Total)
+			statusCounts["302"] = float64(code302Total)
+			statusCounts["304"] = float64(code304Total)
+			statusCounts["3xx"] = float64(code301Total + code302Total + code304Total)
+			statusCounts["400"] = float64(code400Total)
+			statusCounts["403"] = float64(code403Total)
+			statusCounts["404"] = float64(code404Total)
+			statusCounts["411"] = float64(code411Total)
+			statusCounts["499"] = float64(code499Total)
+			statusCounts["4xx"] = float64(code400Total + code403Total + code404Total + code411Total + code499Total)
+			statusCounts["500"] = float64(code500Total)
+			statusCounts["502"] = float64(code502Total)
+			statusCounts["503"] = float64(code503Total)
+			statusCounts["504"] = float64(code504Total)
+			statusCounts["5xx"] = float64(code500Total + code502Total + code503Total + code504Total)
+
 			cdnHitRateAverage, _ := strconv.ParseFloat(fmt.Sprintf("%.3f", (cdnHitRateTotal/float64(len(cdnFlowDetailData)))*100), 64)
 			cdnFlowHitRateAverage, _ := strconv.ParseFloat(fmt.Sprintf("%.3f", (cdnFlowHitRateTotal/float64(len(cdnFlowDetailData)))*100), 64)
 			ch <- prometheus.MustNewConstMetric(
@@ -254,12 +309,28 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 				cdnFlowHitRateAverage,
 				domain,
 			)
+			ch <- prometheus.MustNewConstMetric(
+				e.cdnHitTotal,
+				prometheus.GaugeValue,
+				float64(hitTotal),
+				domain,
+			)
 			for status, rate := range statusCodes {
 				statusRate, _ := strconv.ParseFloat(fmt.Sprintf("%.3f", rate*100), 64)
 				ch <- prometheus.MustNewConstMetric(
 					e.cdnStatusRate,
 					prometheus.GaugeValue,
 					statusRate,
+					domain,
+					status,
+				)
+			}
+
+			for status, cnt := range statusCounts {
+				ch <- prometheus.MustNewConstMetric(
+					e.cdnStatusCount,
+					prometheus.GaugeValue,
+					cnt,
 					domain,
 					status,
 				)
@@ -314,6 +385,7 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 				resourceReqsTotal += point.Reqs
 			}
 			resourceStatusCodes := make(map[string]float64)
+			resourceStatusCounts := make(map[string]float64)
 			resourceCodeTotal = resourceCode200Total + resourceCode206Total + resourceCode301Total + resourceCode302Total +
 				resourceCode304Total + resourceCode400Total + resourceCode403Total + resourceCode404Total + resourceCode411Total +
 				resourceCode499Total + resourceCode500Total + resourceCode502Total + resourceCode503Total + resourceCode504Total
@@ -336,6 +408,26 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 			resourceStatusCodes["503"] = float64(resourceCode503Total) / float64(resourceCodeTotal)
 			resourceStatusCodes["504"] = float64(resourceCode504Total) / float64(resourceCodeTotal)
 			resourceStatusCodes["5xx"] = float64(resourceCode500Total+resourceCode502Total+resourceCode503Total+resourceCode504Total) / float64(resourceCodeTotal)
+
+			// counts
+			resourceStatusCounts["200"] = float64(resourceCode200Total)
+			resourceStatusCounts["206"] = float64(resourceCode206Total)
+			resourceStatusCounts["2xx"] = float64(resourceCode200Total + resourceCode206Total)
+			resourceStatusCounts["301"] = float64(resourceCode301Total)
+			resourceStatusCounts["302"] = float64(resourceCode302Total)
+			resourceStatusCounts["304"] = float64(resourceCode304Total)
+			resourceStatusCounts["3xx"] = float64(resourceCode301Total + resourceCode302Total + resourceCode304Total)
+			resourceStatusCounts["400"] = float64(resourceCode400Total)
+			resourceStatusCounts["403"] = float64(resourceCode403Total)
+			resourceStatusCounts["404"] = float64(resourceCode404Total)
+			resourceStatusCounts["411"] = float64(resourceCode411Total)
+			resourceStatusCounts["499"] = float64(resourceCode499Total)
+			resourceStatusCounts["4xx"] = float64(resourceCode400Total + resourceCode403Total + resourceCode404Total + resourceCode411Total + resourceCode499Total)
+			resourceStatusCounts["500"] = float64(resourceCode500Total)
+			resourceStatusCounts["502"] = float64(resourceCode502Total)
+			resourceStatusCounts["503"] = float64(resourceCode503Total)
+			resourceStatusCounts["504"] = float64(resourceCode504Total)
+			resourceStatusCounts["5xx"] = float64(resourceCode500Total + resourceCode502Total + resourceCode503Total + resourceCode504Total)
 			resourceBandwidthAverage := resourceBandwidthTotal / float64(len(resourceRequestData))
 			resourceReqsAverage := float64(resourceReqsTotal) / float64(len(resourceRequestData))
 			ch <- prometheus.MustNewConstMetric(
@@ -357,6 +449,16 @@ func (e *CdnExporter) Collect(ch chan<- prometheus.Metric) {
 					e.cdnBackSourceStatusRate,
 					prometheus.GaugeValue,
 					statusRate,
+					domain,
+					status,
+				)
+			}
+
+			for status, cnt := range resourceStatusCounts {
+				ch <- prometheus.MustNewConstMetric(
+					e.cdnBackSourceStatusCount,
+					prometheus.GaugeValue,
+					cnt,
 					domain,
 					status,
 				)
